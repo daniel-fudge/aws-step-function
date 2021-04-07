@@ -128,7 +128,9 @@ First create the step function definition file `step-definition.json` as shown b
 ```
 Now create the step function with the following command.
 ```shell
-aws stepfunctions create-state-machine --name step-demo --definition "$(cat step-definition.json)" --role-arn arn:aws:iam::<your account id>:role/step-function-lambda
+aws stepfunctions create-state-machine --name step-demo \
+  --definition "$(cat step-definition.json)" \
+  --role-arn arn:aws:iam::<your account id>:role/step-function-lambda
 ```
 This creates the flow between the three lambda functions as illustrated below.
 ![step](stepfunctions_graph.png)
