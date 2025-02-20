@@ -14,7 +14,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:<your account id>:function:ernie:$LATEST",
+                "FunctionName": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:function:ernie:$LATEST",
                 "Payload": {"input.$": "$"}},
               "OutputPath": "$.Payload",
               "End": true}}
@@ -26,7 +26,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:<your account id>:function:bert:$LATEST",
+                "FunctionName": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:function:bert:$LATEST",
                 "Payload": {"input.$": "$"}},
               "OutputPath": "$.Payload",
               "End": true
@@ -39,7 +39,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName": "arn:aws:lambda:us-east-1:<your account id>:function:combine:$LATEST",
+        "FunctionName": "arn:aws:lambda:AWS_REGION:AWS_ACCOUNT_ID:function:combine:$LATEST",
         "Payload": {"input.$": "$"}},
       "OutputPath": "$.Payload",
       "End": true}

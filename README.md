@@ -1,37 +1,39 @@
 # aws-step-function
 Small repo to demonstrate a step function implementation.
 
-## Create Lambda Function Role
-We need to create and IAM role that the can be attached to the lambda function when it is deployed.   
-We'll reuse the `lambda-demo` role created in [this](https://github.com/daniel-fudge/aws-s3-trigger) repo.  
-
-## Create Step Function Role
-We need to create and IAM role that the can be attached to the step function when it is deployed, similar to the Lambda role created above.   
-First create a `step-trust-policy.json` file that defines the required permissions as shown below.
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {"Service": ["states.amazonaws.com"]},
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-```
-Then create the IAM role in the CLI as shown below. Note I couldn't get this to work on Cloud9 even after running aws 
-configure. Please let me know if you know why.
+## Set some environment variables
 ```shell
-aws iam create-role --role-name step-function-lambda --assume-role-policy-document file://step-trust-policy.json
+export AWS_ACCOUNT_ID=[ENTER AWS ACCOUNT ID HERE]
+export AWS_PAGER=""
+export LAMBDA_ROLE=lambda-execution
+export AWS_REGION=us-east-1
+export STEP_ROLE=step-execution
 ```
 
-Next attached the `AWSLambdaRole` policy to the new role to allow the step funtion to invoke Lambda functions.   
-This is performed with the following CLI command.
+## Create Roles
+Both the Lambda and Step Function execution roles require a trust policy file that allowes
+it to assume the associated service. These `*-trust-policy.json` files are in the root of
+this repo.
+
+### Create Lambda Function Role
+Create the Lambda role and attach the `AWSLambdaBasicExecutionRole` policy to the new 
+Lambda role to allow basic execution. 
 ```shell
-aws iam attach-role-policy --role-name step-function-lambda --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+aws iam create-role --role-name $LAMBDA_ROLE \
+--assume-role-policy-document file://lambda-trust-policy.json
+aws iam attach-role-policy --role-name $LAMBDA_ROLE \
+--policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 ```
 
+### Create Step Function Role
+Create a Step Function execution role and attached the `AWSLambdaRole` policy to the new 
+Step Function role to allow the step function to invoke Lambda functions. 
+```shell
+aws iam create-role --role-name $STEP_ROLE \
+--assume-role-policy-document file://step-trust-policy.json
+aws iam attach-role-policy --role-name $STEP_ROLE \
+--policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+```
 
 ## Create three Lambda functions populate the step function 
 The following commands will create the three simple lambda functions.
@@ -39,31 +41,31 @@ The following commands will create the three simple lambda functions.
 cp -f lambda_ernie.py lambda_function.py
 zip package.zip lambda_function.py
 aws lambda create-function \
-  --function-name ernie \
-  --role arn:aws:iam::<your account id>:role/lambda-demo \
-  --runtime python3.8 --timeout 10 --memory-size 128 \
-  --handler lambda_function.lambda_handler \
-  --zip-file fileb://package.zip
+--function-name ernie \
+--role arn:aws:iam::${AWS_ACCOUNT_ID}:role/$LAMBDA_ROLE \
+--runtime python3.13 --timeout 10 --memory-size 128 \
+--handler lambda_function.lambda_handler \
+--zip-file fileb://package.zip
 rm package.zip lambda_function.py
 
 cp -f lambda_bert.py lambda_function.py
 zip package.zip lambda_function.py
 aws lambda create-function \
-  --function-name bert \
-  --role arn:aws:iam::<your account id>:role/lambda-demo \
-  --runtime python3.8 --timeout 10 --memory-size 128 \
-  --handler lambda_function.lambda_handler \
-  --zip-file fileb://package.zip
+--function-name bert \
+--role arn:aws:iam::${AWS_ACCOUNT_ID}:role/$LAMBDA_ROLE \
+--runtime python3.13 --timeout 10 --memory-size 128 \
+--handler lambda_function.lambda_handler \
+--zip-file fileb://package.zip
 rm package.zip lambda_function.py
 
 cp -f lambda_combine.py lambda_function.py
 zip package.zip lambda_function.py
 aws lambda create-function \
-  --function-name combine \
-  --role arn:aws:iam::<your account id>:role/lambda-demo \
-  --runtime python3.8 --timeout 10 --memory-size 128 \
-  --handler lambda_function.lambda_handler \
-  --zip-file fileb://package.zip
+--function-name combine \
+--role arn:aws:iam::${AWS_ACCOUNT_ID}:role/$LAMBDA_ROLE \
+--runtime python3.13 --timeout 10 --memory-size 128 \
+--handler lambda_function.lambda_handler \
+--zip-file fileb://package.zip
 rm package.zip lambda_function.py
 ```
 
@@ -76,63 +78,18 @@ rm package.zip lambda_function.py
 ```
 
 ## Create the State Machine (Step Function)
-First create the step function definition file `step-definition.json` as shown below with your account number. 
-```json
-{
-  "Comment": "Parallel Demo",
-  "StartAt": "Parallel State",
-  "States": 
-  {
-    "Parallel State": {
-      "Type": "Parallel",
-      "Next": "combine",
-      "Branches": [
-        {
-          "StartAt": "erie",
-          "States": {
-            "erie": {
-              "Type": "Task",
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:<your account id>:function:ernie:$LATEST",
-                "Payload": {"input.$": "$"}},
-              "OutputPath": "$.Payload",
-              "End": true}}
-        },
-        {
-          "StartAt": "bert",
-          "States": {
-            "bert": {
-              "Type": "Task",
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:<your account id>:function:bert:$LATEST",
-                "Payload": {"input.$": "$"}},
-              "OutputPath": "$.Payload",
-              "End": true
-            }
-          }
-        }
-      ]
-    },
-    "combine": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "arn:aws:lambda:us-east-1:<your account id>:function:combine:$LATEST",
-        "Payload": {"input.$": "$"}},
-      "OutputPath": "$.Payload",
-      "End": true}
-  }
-}
-```
-Now create the step function with the following command.
+The step function definition file `step-definition.json` in this repo has placeholders for 
+the AWS account number and region. These are replaced by envirinment variables by a sed 
+command to make a temp file. This temp file is then piped into the CLI command to make the 
+step function.
 ```shell
+sed "s/AWS_REGION/${AWS_REGION}/;s/AWS_ACCOUNT_ID/${AWS_ACCOUNT_ID}/" step-definition.json > temp.json
 aws stepfunctions create-state-machine --name step-demo \
-  --definition "$(cat step-definition.json)" \
-  --role-arn arn:aws:iam::<your account id>:role/step-function-lambda
+--definition "$(cat temp.json)" \
+--role-arn arn:aws:iam::${AWS_ACCOUNT_ID}:role/$STEP_ROLE
+rm -f temp.json
 ```
-This creates the flow between the three lambda functions as illustrated below.
+This creates the flow between the three lambda functions as illustrated below.   
 ![step](stepfunctions_graph.png)
 
 
@@ -140,10 +97,11 @@ This creates the flow between the three lambda functions as illustrated below.
 The following command invokes the step function.
 ```shell
 aws stepfunctions start-execution \
-  --state-machine-arn arn:aws:states:us-east-1:<your account id>:stateMachine:step-demo \
-  --input '{"ernie": "oh", "bert": "snap"}'
+--state-machine-arn arn:aws:states:${AWS_REGION}:${AWS_ACCOUNT_ID}:stateMachine:step-demo \
+--input '{"ernie": "oh", "bert": "snap"}'
 ```
-You should see the following in the AWS State Machine console under the step function execution grap details.
+You should see the following in the AWS State Machine console under the step function 
+execution grap details.
 ![step2](stepfunctions_output.png)
 
 ## References
