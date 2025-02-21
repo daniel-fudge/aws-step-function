@@ -10,6 +10,10 @@ export AWS_REGION=us-east-1
 export STEP_ROLE=step-execution
 ```
 
+## Configure the AWS Console
+Before completing the following CLI command, you need to install the AWS CLI and configure 
+it for the account, role and region you wish to use. I use the `aws configure sso` command.
+
 ## Create Roles
 Both the Lambda and Step Function execution roles require a trust policy file that allowes
 it to assume the associated service. These `*-trust-policy.json` files are in the root of
